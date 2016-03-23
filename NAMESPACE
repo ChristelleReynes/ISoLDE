@@ -1,0 +1,3 @@
+useDynLib(ISoLDE,.registration = TRUE, .fixes = "C_")
+export("readRawInput", "readNormInput", "readTarget", "filterT", "isolde_test")
+import(graphics,grDevices,stats,utils)

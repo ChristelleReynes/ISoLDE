@@ -1,0 +1,510 @@
+%\VignetteIndexEntry{Using ISoLDE}
+%\VignetteEngine{knitr::knitr}
+
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage[all]{xy}
+
+\geometry{hmargin=2.5cm,vmargin=3.5cm}
+\pagestyle{fancy}
+
+\begin{document}
+
+\fancyhead[L]{Identification of Allele-Specific Expression - the \texttt{ISoLDE} package}
+\fancyhead[R]{\thepage}
+
+\author{Christelle Reynès, Marine Rohmer, Guilhem Kister, Tristan Bouschet, Annie Varrault, Emeric Dubois, St\'ephanie Rialle, Laurent Journot and Robert Sabatier}
+
+\newcommand{\up}[1]{\textsuperscript{#1}} 
+\newcommand{\escape}[1]{\texttt{\textbackslash#1}}
+
+\begin{center}
+{\LARGE  \textcolor[HTML]{D82253}{ {\fontfamily{pag}\selectfont Identification of Allele-Specific Expression - the \texttt{ISoLDE} package}}}
+
+\vspace{0.5cm}
+
+Christelle Reynès\up{1,2}*, Marine Rohmer\up{3}, Guilhem Kister\up{1,2}, Tristan Bouschet\up{1}, Annie Varrault\up{1}, Emeric Dubois\up{3}, Stéphanie Rialle\up{3}, Laurent Journot\up{1} and Robert Sabatier\up{1,2}
+
+\vspace{0.5cm}
+
+\up{1} Institute of Functional Genomics, CNRS UMR5203, INSERM U661, University of Montpellier, Montpellier, France.\\
+\up{2} Laboratory of Biostatistics, Informatics and Pharmaceutical Physics, UFR Pharmacy, University of Montpellier, Montpellier, France.\\
+\up{3} Montpellier GenomiX facility, UMS 3426 BioCampus, Montpellier, France\\
+*\small{\texttt{Christelle.Reynes (at) igf.cnrs.fr}}
+
+\vspace{0.5cm}
+
+\today
+
+\vspace{1cm}
+
+%%% ~~~~~~~~~~~~~~~~~~~~~~ ABSTRACT ~~~~~~~~~~~~~~~~~~~~~~ 
+
+\textbf{ {\fontfamily{pag}\selectfont Abstract}}
+\end{center}
+
+%%% ABSTRACT
+The allele-specific expression of genes is typically questioned through RNA sequencing analyses. However, statistical modelling of data is still under question.
+This BioConductor package proposes a novel statistical method designed to test for the parent or strain specific gene expression in the context of reciprocal crosses.
+% Ce qu'on avait initialement mis:
+% This method, called \texttt{ISoLDE} for Integrative Statistics of alleLe Dependent Expression, consists in a robust non-parametric test based on a novel criterion.
+% La phrase de la publi :
+%This method aims at freeing itself from approximative modelling by the use of non parametric statistics whose distribution is directly learnt from the data through resampling.
+% Ma nouvelle phrase :
+This method, called \texttt{ISoLDE} for Integrative Statistics of alleLe Dependent Expression, is a robust non-parametric test based on a novel criterion whose distribution is directly learnt from the data through resampling.
+The main option is to use bootstrap resampling to estimate criterion distribution. Alternatively, for datasets with only two replicates in each cross, empirical thresholds are applied to the criterion. This vignette introduces a typical workflow with \texttt{ISoLDE} and details the main theoretical aspects of the method. 
+
+\vspace{0.5cm}
+
+\textbf{\texttt{ISoLDE} version}: 0.99.0
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+%%% ~~~~~~~~~~~~~~~~~~~~~~ LIST OF TERMS  ~~~~~~~~~~~~~~~~~~~~~~ 
+
+\section{List of terms used in this vignette}
+\begin{tabbing}
+\hspace{2.5cm}\= \hspace{1.5cm}\= \kill
+ASE \> \> Allele Specific Expression.\\
+ASR \> \> Allele Specific Read.\\
+raw count \> \> An ASR count obtained such as described in the 3.2.1 section.\\
+normalized count \> \> An ASR count obtained such as described in the 3.2.1 section and then\\
+~\> \> normalized.\\
+0 count \> \> A value of 0 in an ASR count data file or in a dataframe.\\
+\end{tabbing} 
+
+%%% ~~~~~~~~~~~~~~~~~~~~~~ INTRODUCTION ~~~~~~~~~~~~~~~~~~~~~~ 
+
+\section{Introduction: what ISoLDE does}
+
+\subsection{Background}
+
+%Allelic specific expression is an important research area in biology. Allelic imbalance is known to affect a subset of genes in diploid organisms.
+In diploid cells, genetic and epigenetic factors influence the relative expression levels of the two alleles of a gene.
+%For these genes, one of the two alleles is preferentially (or even uniquely) expressed.
+The preferred allele may depend on the chromosome parental origin as for imprinted genes, but other imbalances such as strain bias may occur. To study allele specific expression (ASE), RNA-seq has become the standard technology but how to statistically analyze those data is still debated.\\
+\\
+\texttt{ISoLDE} is a new non-parametric statistical method for identifying genes with allele-specific expression. \texttt{ISoLDE} is dedicated to stranded RNA-seq experiment on hybrid samples resulting from reciprocal parental crosses. \texttt{ISoLDE} has the new and useful advantage of statistically identifying both biased and unbiased genes allowing some genes to be undetermined (see \cite{iso16} for more information). It aims at freeing itself from approximate modelling by the use of non parametric statistics whose distribution is directly learnt from the data through resampling. To this goal, a specific criterion was designed to take into account data specificities and make the best of biological replicates information.\\
+\\
+\texttt{ISoLDE} identifies parental or strain expression biases. It requires pre-processed data that consist of a matrix of allele-specific read (ASR) counts for every gene. Details on how to obtain such counts are provided in section 3.2.1.\\
+Normalization of data is strongly recommended, what can be achieved by other \texttt{BioConductor} packages such as \texttt{edgeR} or \texttt{DESeq} (\texttt{ISoLDE} does NOT provide data normalization).\\
+\texttt{ISoLDE} yields both graphical and textual outputs, containing lists of parental biased genes or strain biased genes according to what you want to study.
+
+\subsection{Workflow overview}
+
+The following figure shows the workflow overview of the \texttt{ISoLDE} package.
+
+\newpage
+
+%%% Workflow
+\begin{figure}[h!]
+\includegraphics[width=17cm,trim=0 270 0 0,clip=true]{./workflow.pdf}
+\caption{ISoLDE workflows}
+\end{figure}
+
+\subsection{The ISoLDE package functions}
+
+The \texttt{ISoLDE} package includes the five functions described below.\\
+Three functions are available for reading, loading and checking your input data:
+\begin{itemize}
+\item \textbf{\textcolor[HTML]{DF9321}{\texttt{readRawInput}}} checks and loads into a dataframe the input file containing raw ASR counts so that it can be input into \texttt{filterT}. This is only required to use the \texttt{filterT} function and if your normalized data no longer contain 0 counts that are required for the \texttt{filterT} function.
+\item \textbf{\textcolor[HTML]{DF9321}{\texttt{readNormInput}}} checks and loads into a dataframe the input file containing normalized ASR counts so that it can be input into \texttt{filterT} and \texttt{isolde\_test}.
+\item \textbf{\textcolor[HTML]{DF9321}{\texttt{readTarget}}} checks and loads into a dataframe your target input file.
+\end{itemize}
+
+\noindent Main functions:
+\begin{itemize}
+\item \textbf{\textcolor[HTML]{DF9321}{\texttt{filterT}}} filters lowly expressed genes according to a data driven threshold, before any statistical analysis. This step is not mandatory but strongly recommended.
+\item \textbf{\textcolor[HTML]{DF9321}{\texttt{isolde\_test}}} performs the statistical test (two possible options according to the number of available biological replicates) and outputs lists of genes according to their ASE status.
+\end{itemize}
+
+%%% STANDARD WORKFLOW
+\section{Standard Workflow}
+
+%%% QUICK START
+\subsection{Quick start}
+These are the typical steps of application of ISoLDE on filtered and normalized RNAseq data (tab-delimited text files) where reads are assigned according to their parental origin (see section \ref{pre} for more details). 
+
+\begin{verbatim}
+> library(ISoLDE)
+> rawASRcounts <- readRawInput(raw_file = "my_raw_file.txt") 
+> normASRcounts <- readNormInput(norm_file = "my_norm_file.txt") 
+> target <- readTarget(target_file = "my_target_file.txt", asr_counts = rawASRcounts) 
+> filteredASRcounts <- filterT(rawASRcounts = rawASRcounts, normASRcounts = normASRcounts, 
+	target = target, bias="parental") 
+> res <- isolde_test(bias = "parental", asr_counts = filteredASRcounts, target = target)
+\end{verbatim}
+For strain origin, the user has to use the \texttt{strain} value for argument \texttt{bias} in both \texttt{filterT} and \texttt{isolde\_test}. 
+
+%%% DETAILED USE
+\subsection{Detailed use case of ISoLDE}
+
+\subsubsection{Preliminary bioinformatics steps}
+\label{pre}
+
+\texttt{ISoLDE} works with pre-processed RNA-seq data obtained from hybrid species resulting from reciprocal crosses of two parental strains.\\
+\texttt{ISoLDE} requires at least two biological replicates for each cross, but the more replicates, the more reliable the results.
+Moreover, ASE cannot be questioned if RNA sequencing depth is too low and statistical significance is improbable for low expressed transcripts.
+\vspace{0.5cm}
+
+Typical preliminary bioinformatics steps are:
+\begin{itemize}
+\item Building a hybrid reference sequence set with IUPAC ambiguous codes at SNP locations. Tools like \texttt{Novoalign} (Novocraft, http://www.novocraft.com/main/index.php), with \texttt{Novoutil} IUPAC, can be used in this scope.
+\item Alignment of reads from the RNA-sequencing experiment on this hybrid reference sequence set.
+\item Counting of the different bases at SNP positions according to their allelic origin (e.g. using \texttt{SAMtools/mpileup}).
+\item Annotation of SNPs to sum allele-specific sense read bases across a gene or a transcript (e.g. using \texttt{Annovar}).
+\end{itemize}
+
+\vspace{0.3cm}
+
+\textbf{Important:} The parental origin of chromosome X genes can be assessed only with female samples. To avoid genes that are not meaningful to test with \texttt{ISoLDE}, remove the chromosome X genes from your resulting data files if your samples are not all females.
+% and the MT chromosome genes in your resulting data files.
+
+\vspace{0.3cm}
+
+More details on preliminary steps are available in \cite{bab12}. 
+
+\vspace{0.5cm}
+
+\noindent In this vignette, "raw counts" is used to name allele-specific sense read bases. The count file thus obtained is called raw count file or raw ASR count file. For example, for three biological replicates in each cross, the raw count file must contain 12 columns: three replicates $\times$ two reciprocal crosses $\times$ two allelic origins (parental or strain). An example of such a design is shown in section \ref{input_SNP}.  \\
+We strongly recommend use normalized counts before performing any statistical test.
+In our example, counts have been normalized with the \texttt{edgeR BioConductor} package using the RLE normalization factor.
+
+\subsubsection{Input data}
+
+\label{input_SNP}{\paragraph{ASR counts file\\}}
+
+The first mandatory input is an ASR counts file, depending on whether you intend to filter your ASR counts or not, and whether you work on normalized data or not.
+As well as normalizing, we strongly encourage to filter your data before statistical analysis.
+The raw count file is only used in the \texttt{filterT} function to locate genes (or transcripts) having 0 counts in at least one column. If your normalized data still contain 0 counts, then the raw count file is not necessary. 
+\begin{itemize}
+\item \textbf{Case 1 (recommended): with the \texttt{ISoLDE} filtering step on normalized data: } 
+The \texttt{filterT} function uses raw data to determine a threshold for filtering and then applies the filter on your normalized data. In this case, input data are both raw and normalized ASR count files.
+
+\item \textbf{Case 2 (not recommended): with the filtering step on raw data: } 
+Input data is only a raw ASR count file. Warning: in this case, you work with non normalized data. 
+
+\item \textbf{Case 3 (not recommended): without the \texttt{ISoLDE} filtering step: }
+Input data is an ASR count file which has been either filtered by yourself or not, and either normalized or not.
+\end{itemize}
+
+\noindent Each ASR count file must have one line per feature (gene or transcript).\\
+Each ASR count file must have two columns per biological sample (one for each allelic origin, such as described in section \ref{pre}). For example, for three biological replicates in each cross, the raw count file must contain 12 columns: three replicates $\times$ two reciprocal crosses $\times$ two allelic origins (parental or strain). 
+Columns are delimited with a character (e.g. tabulation). \\ 
+While having row names (gene or transcript names) is quite obvious, column names are not mandatory.\\
+An example of normalized ASR count file obtained after loading is shown later.
+
+
+%%% TARGET FILE
+\paragraph{Target file\\}
+The other mandatory input is a metadata file that we call "target file". It describes the experiment design and each column of the ASR count file contents.
+
+\vspace{0.3cm}
+
+It consists of three delimited columns describing your input data (raw and / or normalized ASR count file(s) with the same structure if both are provided). Each line of the target file corresponds to a column of the ASR count file. \textbf{Lines of target file MUST be in the same order as the columns in the input data.}\\
+The first line corresponds to the column names: {\fontfamily{pcr}\selectfont sample}, {\fontfamily{pcr}\selectfont parent} and {\fontfamily{pcr}\selectfont strain}.\\
+Then, each line contains the three corresponding values, separated by a tabulation or any character.
+
+\vspace{0.3cm}
+
+Details of the three columns: \\
+{\fontfamily{pcr}\selectfont sample}: the sample (biological replicate) name. Two lines per sample name are expected (one for the maternal origin and one for the paternal origin).\\
+{\fontfamily{pcr}\selectfont parent}: the parental origin of the ASR count. Two possible values: \texttt{maternal} or \texttt{paternal}. \\
+{\fontfamily{pcr}\selectfont strain}: the strain origin of the ASR count. Exactly two different values are expected in the whole column. \\
+
+\textbf{Note:} spaces and the ":" character are forbidden in the \texttt{sample} and \texttt{strain} columns.
+\vspace{0.3cm}
+
+Here is the target file of our example. As you can see, the same sample name  appears twice, once for the maternal origin and once for the paternal origin. Do not use different names for the same biological sample.
+
+%\vspace{0.3cm}
+
+\begin{verbatim}
+sample	parent	strain
+sample1	maternal	BL/6
+sample2	maternal	BL/6
+sample3	maternal	BL/6
+sample4	maternal	BL/6
+sample5	maternal	JF1
+sample6	maternal	JF1
+sample7	maternal	JF1
+sample1	paternal	JF1
+sample2	paternal	JF1
+sample3	paternal	JF1
+sample4	paternal	JF1
+sample5	paternal	BL/6
+sample6	paternal	BL/6
+sample7	paternal	BL/6
+\end{verbatim}
+
+\paragraph{Reading data\\}
+\label{reading_data}
+
+\texttt{ISoLDE} proposes its own functions to load your input data as a data.frame. Each function includes some specific checks according to \texttt{ISoLDE} requirements (hence their use is recommended).\\
+
+Assuming the raw ASR count file is called "my\_raw\_file.txt", the normalized ASR count file "my\_norm\_file.txt" and the target file "my\_target\_file.txt", reading input files simply consists of:
+
+\vspace{0.5cm}
+\begin{verbatim}
+> rawASRcounts <- readRawInput(raw = "my_raw_file.txt")
+> normASRcounts <- readNormInput(norm = "my_norm_file.txt")
+> target <- readTarget(target_file = "my_target_file.txt", asr_counts = rawASRcounts)
+\end{verbatim}
+
+\vspace{0.3cm}
+Three data frames are obtained. The structure of the normASRcounts data frame of our example is given below: 
+
+\newpage
+
+\begin{verbatim}
+> head(normASRcounts)
+       sample1 	    sample2     sample3     sample4    sample5      sample6
+gene_1 299.7457552 219.3375221 244.5973016  238.414208 171.1630330  257.307921
+gene_2  20.4372106  24.5894083  16.8346321    9.691634  12.3617746   16.321771
+gene_3   0.9732005   0.9835763   0.9902725    0.000000   1.9018115    0.000000
+gene_4 108.9984564  87.5382936  86.1537054   92.070528 113.1577829  139.215107
+gene_5   0.9732005   0.0000000   2.9708174    0.000000   0.9509057    3.840417
+gene_6  22.3836116   8.8521870  16.8346321   13.568288  10.4599631   18.241979
+        sample7    sample1     sample2      sample3    sample4       sample5
+gene_1  213.834348 283.2013467 194.7481138  216.869672 193.8326895   216.80651
+gene_2   16.448796  35.0352181  20.6551030   24.756812  18.4141055    21.87083
+gene_3    1.935152   0.9732005   0.9835763    0.000000   0.9691634     0.00000
+gene_4  150.941893 121.6500630  79.6696829   83.182888 118.2379406    74.17065
+gene_5    0.000000   0.0000000   0.0000000    0.000000   0.0000000     0.00000
+gene_6    6.773034  17.5176091  11.8029160    6.931907  10.6607979    16.16540
+       sample6      sample7
+gene_1 265.9488588  265.115889
+gene_2  27.8430213   27.092135
+gene_3   0.9601042    2.902729
+gene_4  95.0503142  117.076725
+gene_5   1.9202084    0.000000
+gene_6  23.0425004   18.383948
+\end{verbatim}
+
+%\subsubsubsection{Filtering data}
+\paragraph{Filtering data\\}
+
+Filtering is recommended to avoid considering genes without enough information, and thus to avoid a too strong effect of multiple test correction.\\
+In the \texttt{filterT} function, the filter threshold is defined according to the maximum number of counts for genes having at least 66\% of replicates as zero counts in data, for each parental (or strain origin).\\
+%Only genes having all replicates for at least one parental origin above the threshold are considered as really expressed and kept for the subsequent analyses.\\
+\\
+Thus, the \texttt{filterT} method needs either the raw or normalized input file to have genes (or transcripts) having zero values in at least one column. After normalization, zero values are often changed into non integer values. That is why if your normalized file still contains genes having zero values in at least one column, you do not need to provide the raw count file, else both raw and normalized data files should be provided. If you want to analyze raw data, only raw ASR counts can be provided. \\
+\\
+Note that in any case a minimal filtering step will always be performed while applying the \texttt{isolde\_test} function. It consists of eliminating all genes not satisfying these two conditions:\\
+- at least one of the two medians (of paternal or maternal ASR counts) is different from 0;\\
+- there is at least one ASR count (different from 0) in each cross.
+% having at least 1 ASR count for each replicate of each biological condition.
+
+The \texttt{filterT} function outputs two dataframes: \texttt{removedASRcounts} containing genes that did not satisfied the two conditions, and \texttt{filteredASRcounts} containing genes that successfully pass the filtering step.
+\newpage
+\begin{verbatim}
+> res_filterT <- filterT(rawASRcounts = rawASRcounts, normASRcounts = 
+normASRcounts, target = target)
+> filteredASRcounts <- res_filterT$filteredASRcounts
+\end{verbatim}
+
+Now we have a dataframe \texttt{filteredASRcounts} containing normalized and filtered ASR counts on which to run the statistical test.
+
+\subsubsection{ASE analysis}
+
+Depending on how many biological replicates are available for both crosses, \texttt{ISoLDE} will use the bootstrap or the threshold method. The main and recommended option is to use bootstrap resampling to estimate criterion distribution. Alternatively, for datasets with only two replicates from at least one cross, empirical thresholds are applied to the criterion (see section \ref{method} for details). The default behaviour of the \texttt{isolde\_test} function is to adapt to the number of replicates per cross: when only two replicates are available for at least one cross, the threshold method is used, if more than two replicates are available for both crosses, the more accurate bootstrap method is applied. When less than two replicates are available in the dataset, \texttt{isolde\_test} can not be run. The bootstrap method is more robust than the threshold one because it can take into account more information from the replicates, but one may desire to perform the threshold method for comparison purpose. Then, one can set the method parameter to \texttt{threshold}. Note that the contrary is not possible (one can not force the bootstrap method if no more than two replicates per cross are available). 
+
+\vspace{0.5cm}
+Below are two examples of \texttt{ISoLDE} use.
+\vspace{0.5cm}
+
+\textcolor[HTML]{BC3A8C}{\textbf{Parental bias, bootstrap method:}}\\
+Here is the code to identify genes with parent-of-origin dependant expression, using the bootstrap method on our example: 
+
+\vspace{0.1cm}
+
+\begin{verbatim}
+ > res <- isolde_test(bias = "parental",
+asr_counts = filteredASRcounts,
+target = target)
+\end{verbatim}
+
+\vspace{0.5cm}
+
+\textcolor[HTML]{BC3A8C}{\textbf{Strain bias, threshold method:}}\\
+If you only have two biological replicates in each cross, here is the code to look for strain bias in gene expression with the threshold method: 
+
+\vspace{0.1cm}
+
+\begin{verbatim}
+ > res <- isolde_test(bias = "strain",
+method = "threshold",
+asr_counts = filteredASRcounts,
+target = target}
+\end{verbatim}
+
+\vspace{0.5cm}
+
+\subsubsection{Output data}
+ISoLDE returns R objects and can produce both graphical and textual outputs.
+
+%\subsubsubsection{Object output}
+\paragraph{Object output}
+
+\label{obj}
+The object output of \texttt{isolde\_test} consists of three different \texttt{data.frame}:  
+\begin{itemize}
+\item{listASE} is a \texttt{dataframe} with one row per gene (or transcript) identified as having an allelic bias and five columns: 
+   \begin{itemize}
+      \item \texttt{names} contains gene (or transcript) names such as \texttt{asr\_counts} row names, 
+      \item \texttt{criterion} contains the criterion value (see \cite{iso16}), 
+      \item \texttt{diff\_prop} is the criterion numerator which reflects the difference between proportions of either parents or strain origins, 
+      \item \texttt{variability} is the criterion denominator which quantifies the gene (or transcript) variability between replicates, 
+      \item \texttt{origin} specifies the bias direction either "P" or "M" for parental bias or one of specified strain names for strain bias.
+   \end{itemize}
+  
+\item{listBA} is a \texttt{dataframe} with one row per gene (or transcript) identified as biallelically expressed and four columns corresponding to the first four ones in listASE. 	
+  
+\item{listUN} is a \texttt{dataframe} with one row per gene (or transcript) with undetermined status (when \texttt{ISoLDE} can not affirm that expression of these genes is biased or biallelic) and six columns. The first five columns are the same as \texttt{listASE}, the last one may contain three values: 
+   \begin{itemize}
+      \item \texttt{FLAG\_consistency} for genes with no statistical evidence of neither bias nor biallelic expression but whose parental or strain bias is always in the same direction across replicates, 
+      \item \texttt{FLAG\_significance} for genes with statistical evidence of bias but with discrepancies in bias direction across replicates,
+      \item \texttt{NO\_FLAG} for other undetermined genes.
+   \end{itemize}
+\end{itemize}
+
+\begin{verbatim}
+> head(res$listASEtot)
+name	criterion	diff_prop	variability	origin
+gene_6196	12.167896	-1.0000000	0.006754124	P
+gene_561	11.072286	-0.9979916	0.008124173	P
+gene_6174	8.776794	-0.9967999	0.012898647	P
+gene_4729	8.582397	-0.9961772	0.013472742	P
+gene_2891	8.235402	-1.0000000	0.014744511	P
+gene_6959	8.100851	-0.9926529	0.015015284	P
+\end{verbatim}
+
+%%% GRAPHICAL OUTPUT
+%\subsubsubsection{Graphical output}
+\paragraph{Graphical output\\}
+
+A graphical output is generated by default.
+%This graph allows to locate genes with regards to each other in terms of the criterion and attention can be focused on genes having the most interesting characteristics depending on the user needs.
+This graph allows to locate genes according to criterion values.
+Looking for maternal or paternal expression biases, we obtain:
+
+\vspace{0.5cm}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=14cm]{ISoLDE_result_on_example.pdf}
+\caption{ISoLDE - Graphical output}
+\end{figure}
+
+\newpage
+
+\textbf{Legend}
+\begin{tabbing}
+\hspace{2.5cm}\= \hspace{1.5cm}\= \kill
+\textcolor[HTML]{8B008B}{\textbf{+ purple}} \> \> biallelically expressed genes.\\
+\textcolor[HTML]{00688B}{\textbf{+ blue}} \> \> paternally expressed genes.\\
+\textcolor[HTML]{CD0000}{\textbf{+ red}} \> \> maternally expressed genes.\\
+\textcolor[HTML]{7F7F7F}{\textbf{+ grey}} \> \> undetermined genes.\\
+\textcolor[HTML]{7F7F7F}{\textbf{$\oplus$ grey surrounded}} \> \> undetermined genes with either consistency or significance flag.
+\end{tabbing} 
+
+
+When performing the threshold method, additional grey dashed curves represent the two criterion empirical thresholds used for the analysis.
+
+\newpage
+
+%%% TEXTUAL OUTPUT
+%\subsubsubsection{Textual output}
+\paragraph{Textual output}
+When \texttt{text} argument is set to \texttt{TRUE} (default), three tab-delimited text files are produced:
+\begin{itemize}
+	\item the "BA" file contains what is in listBA object (see \ref{obj}),
+	\item the "ASE" file contains what is in listASE object (see \ref{obj}),
+	\item the "UN" file contains what is in listUN object (see \ref{obj}).
+\end{itemize}
+
+\newpage
+
+%%% CRITERION CHOICE
+\section{Theoretical aspects of ISoLDE algorithm}
+\label{method}
+In previous studies, ASE status has been tested through different ways of modelling data. \texttt{ISoLDE} aims at both defining an appropriate criterion taking into account the data specificities and better taking into account replicates.
+
+\subsection{Criterion choice}
+
+The so far used methods to identify genes with ASE rely on classical statistical methods such as z-test or chi-square test with a global use of replicates whose reads are often summed before applying the chosen test (see for example \cite{bab12,dev12}). In our method, the goal was to adapt usual statistics to the data specificities. In particular, in usual z-test, the denominator accounts for the samples variability but based on a binomial behaviour which underestimates RNAseq data variability. Moreover, as few replicates are most of time available, the use of classical variance is inappropriate. Hence, we chose the MAD (Median Absolute Deviation, \cite{ham74}) to quantify samples variability. Finally, as sequencing depth has to be taken into account (the results concerning a gene having many reads are more reliable than those concerning few reads), the MAD has been divided by the median number of reads in the sample. Thus, variability estimation is a robust version of coefficient of variation using MAD instead of standard deviation and median instead of mean.\\
+The next section will now focus on how to put thresholds on this criterion. The aim is to be able to define both genes with ASE and biallelically expressed genes and to keep the possibility that some genes neither BA nor allele dependent expressed remain undetermined.
+
+%%% THRESHOLD DEFINITION
+
+\subsection{Threshold definition}
+
+To define thresholds, two situations are considered: either there are more than two biological replicates in both reciprocal crosses or not.
+
+\subsubsection{Situation 1: more than two biological replicates in both crosses}
+
+When enough information is available, the method aims at taking advantage of it by using bootstrap resampling. For each gene and each biological replicate, the total number of reads is divided up between maternal and paternal origin according to the current question: 
+\begin{itemize}
+\item when genes with ASE are being identified, in order to generate the null hypothesis distribution of the criterion, the reads are \textit{equally} allocated to maternal and paternal origins (or strain origins) using the same distribution of proportions as  what is observed between replicates within one cross. Indeed, within a given cross, differences between maternal and paternal (or strain) origins are expected to only account for biological noise.
+%\item when genes with ASE are being identified, in order to generate the null hypothesis distribution of the criterion, the reads are \textit{equally} distributed using proportions such as those observed between biological replicates inside a given cross,
+\item when biallelically expressed genes are being identified, in order to generate the null hypothesis distribution of the criterion, a bias ratio is randomly chosen and the reads are distributed according to those proportions.
+\end{itemize}
+In both cases, the resampling is performed many times (the default value is 5000). Then, the distributions obtained for each gene are used to compute empirical p-values which are corrected using usual Benjamini-Hochberg FDR correction for multiple tests \cite{ben95}.
+
+\subsubsection{Situation 2: only two biological replicates in at least one cross}
+
+In this situation, there is too few information to obtain reliable distributions under null hypothesis from resampling. Predefined thresholds will be chosen and applied. This choice is based on a consensus of ten different datasets including two or more replicates for each cross. \\
+The ten datasets are the following ones:
+\begin{itemize}
+\item five datasets obtained in our labs including the two \textit{in vivo} datasets used and detailed in \cite{iso16} and \cite{tri16} and three \textit{in vitro} experiments containing only two biological replicates;
+\item Hasin-Brumshtein's data from \cite{has14} studying two replicates experiments on the reciprocal crosses of C57BL/6J with DBA/2J and concerning mouse adipose tissue;
+\item Babak's data from \cite{bab08} containing four replicates of E9.5 mouse embryos of reciprocal crosses of CAST/Eij and C57BL/6J;
+\item three datasets from Lorenc \textit{et al.} \cite{lor14} concerning three mouse tissues (vomeronasal organ, hypothalamus and liver) obtained by reciprocally crossing WSB and PWD strains with three to six biological replicates for each cross.
+\end{itemize}
+%A majority of datasets with few replicates and no dataset with many replicates have been introduced in order not to bias the threshold towards values which are only meaningful when enough replicates are available.\\
+See \cite{iso16} for more details.
+
+\newpage
+
+%%% ~~~~~~~~~~~~~~~~~~~~~~~~~ REFERENCES ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+%\bibliographystyle{apalike}
+%\bibliography{reynes}
+
+\begin{thebibliography}{}
+
+
+\bibitem[Babak \textit{et al.} (2008)]{bab08} Babak T., DeVeale B., Armour C., Raymond C., Cleary M., Van Der Kooy D., Johnson J. \& Lim L. P. \textbf{Global survey of genomic imprinting by transcriptome sequencing.} {\it Current biology, vol. 18-22, 1735--1741, Elsevier.}
+
+\bibitem[Babak (2012)]{bab12} Babak T. \textbf{Identification of imprinted Loci by transcriptome sequencing.} {\it Genomic Imprinting, 79--88, Springer.}
+
+\bibitem[Benjamini \textit{et al.}(1995)]{ben95} Benjamini Y. \& Hochberg Y. (1995) \textbf{Controlling the false discovery rate: a practical and powerful approach to multiple testing.} {\it Journal of the Royal Statistical Society. Series B (Methodological), JSTOR, 289--300}.
+
+\bibitem[Bouschet \textit{et al.}(2016)]{tri16} Bouschet T., Dubois E., Reynès C., Kota S. K., Rialle S., Maupetit-Méhouas S., Pezet M., Le Digarder A., Nidelet S., Demolombe V., Cavelier P., Meusnier C., Maurizy C., Sabatier R., Feil R., Arnaud P., Journot L. and Varrault A. (2016) \textbf{In vitro corticogenesis from embryonic stem cells recapitulates the in vivo epigenetic control of imprinted gene expression.} {\it Under submission}.
+
+\bibitem[DeVeale \textit{et al.}(2012)]{dev12} DeVeale B., Van Der Kooy D., \& Babak T. \textbf{Critical evaluation of imprinted gene expression by RNA--Seq: a new perspective.} {\it PLoS genetics, vol 8 - 3, e1002600, Public Library of Science.}
+
+\bibitem[Hampel (1974)]{ham74} Hampel F. R. \textbf{The influence curve and its role in robust estimation.} {\it Journal of the American Statistical Association, vol 69 - 346, 383--393, Taylor \& Francis.}
+
+\bibitem[Hasin-Brumshtein \textit{et al.}(2014)]{has14} Hasin-Brumshtein Y., Hormozdiari F., Martin L., Van Nas A., Eskin E., Lusis A. J, Drake T. A. \textbf{Allele-specific expression and eQTL analysis in mouse adipose tissue} {\it BMC genomics, vol 15-1-471, BioMed Central Ltd}
+
+\bibitem[Lorenc \textit{et al.}(2014)]{lor14} Lorenc A., Linnenbrink M., Montero I, Schilhabel M. B. \& Tautz D. \textbf{Genetic differentiation of hypothalamus parentally biased transcripts in populations of the house mouse implicate the Prader-Willi syndrome imprinted region as a possible source of behavioral divergence.} {\it Molecular biology and evolution, SMBE, msu257.}
+
+\bibitem[Reynès \textit{et al.}(2016)]{iso16} Reynès C., Kister G., Rohmer M., Bouschet T., Varrault A., Dubois E., Rialle S., Journot L. \& Sabatier R. (2016) \textbf{ISoLDE: a new method for identification of allelic imbalance.} {\it Under submission}.
+
+%\bibitem[ \textit{et al.}()]{} auteurs \textbf{titre} {\it journal}
+
+\end{thebibliography}
+
+\end{document}

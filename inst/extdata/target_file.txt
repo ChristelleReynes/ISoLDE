@@ -1,0 +1,15 @@
+sample	parent	strain
+sample1	maternal	BL/6
+sample2	maternal	BL/6
+sample3	maternal	BL/6
+sample4	maternal	BL/6
+sample5	maternal	JF1
+sample6	maternal	JF1
+sample7	maternal	JF1
+sample1	paternal	JF1
+sample2	paternal	JF1
+sample3	paternal	JF1
+sample4	paternal	JF1
+sample5	paternal	BL/6
+sample6	paternal	BL/6
+sample7	paternal	BL/6

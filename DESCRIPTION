@@ -1,0 +1,28 @@
+Package: ISoLDE
+Type: Package
+Title: Integrative Statistics of alleLe Dependent Expression
+Version: 0.99.0
+Date: 2015-10-29
+Authors@R: c( person("Christelle", "Reynès", email =
+        "christelle.reynes@igf.cnrs.fr", role = c("aut","cre")),
+        person("Marine", "Rohmer", email = "marine.rohmer@mgx.cnrs.fr",
+        role = c("aut")), person("Guilhem", "Kister", email =
+        "guilhem.kister@umontpellier.fr", role = c ("aut")))
+Description: This package provides ISoLDE a new method for identifying
+        imprinted genes. This method is dedicated to data arising from
+        RNA sequencing technologies. The ISoLDE package implements
+        original statistical methodology described in the publication
+        below.
+Encoding: UTF-8
+License: GPL (>= 2.0)
+Depends: R (>= 3.3.0),graphics,grDevices,stats,utils
+URL: www.r-project.org
+LazyData: no
+NeedsCompilation: yes
+Author: Christelle Reynès [aut, cre], Marine Rohmer [aut], Guilhem
+        Kister [aut]
+Maintainer: Christelle Reynès <christelle.reynes@igf.cnrs.fr>
+biocViews: GeneExpression, Transcription, GeneSetEnrichment, Genetics,
+        Sequencing, RNASeq, MultipleComparison, SNP,
+        GeneticVariability, Epigenetics, MathematicalBiology,
+        GeneRegulation
