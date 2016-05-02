@@ -10,7 +10,7 @@ target <- readTarget(target_file = targetfile, asr_counts = rawASRcounts, del = 
 
 res_filterT <- filterT(rawASRcounts = rawASRcounts, normASRcounts = normASRcounts, target = target, bias="parental")
 filteredASRcounts <- res_filterT$filteredASRcounts
-resiso<-isolde_test(bias = "parental", asr_counts = filteredASRcounts, target = target, graph = TRUE, text = FALSE, ext = "png", nboot = 3000)
+resiso<-isolde_test(bias = "parental", asr_counts = filteredASRcounts, target = target, graph = TRUE, text = FALSE, ext = "png", nboot = 3000,pcore=1)
 res_filterT <- filterT(rawASRcounts = rawASRcounts, normASRcounts = normASRcounts, target = target, bias="strain")
 filteredASRcounts <- res_filterT$filteredASRcounts
 resiso<-isolde_test(bias = "strain", asr_counts = filteredASRcounts, target = target, graph = TRUE, text = FALSE, ext = "png", nboot = 3000, method = "threshold")
