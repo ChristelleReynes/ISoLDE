@@ -1,7 +1,7 @@
 Package: ISoLDE
 Type: Package
 Title: Integrative Statistics of alleLe Dependent Expression
-Version: 1.11.0
+Version: 1.11.1
 Date: 2015-10-29
 Authors@R: c( person("Christelle", "Reynès", email =
         "christelle.reynes@igf.cnrs.fr", role = c("aut","cre")),
@@ -22,7 +22,7 @@ NeedsCompilation: yes
 Author: Christelle Reynès [aut, cre], Marine Rohmer [aut], Guilhem
         Kister [aut]
 Maintainer: Christelle Reynès <christelle.reynes@igf.cnrs.fr>
-biocViews: GeneExpression, Transcription, GeneSetEnrichment, Genetics,
+biocViews: ImmunoOncology, GeneExpression, Transcription, GeneSetEnrichment, Genetics,
         Sequencing, RNASeq, MultipleComparison, SNP,
         GeneticVariability, Epigenetics, MathematicalBiology,
         GeneRegulation
