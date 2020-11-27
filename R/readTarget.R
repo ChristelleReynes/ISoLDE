@@ -33,7 +33,7 @@ readTarget <- function(target_file, asr_counts, del = "\t")
 
   message("Reading target file...")
   # Reading
-  target <- read.table(target_file, header = TRUE, sep = del)
+  target <- read.table(target_file, header = TRUE, sep = del, stringsAsFactors = TRUE)
   
   # Checking the number of columns	OK
   if (ncol(target) != 3) {
