@@ -1,11 +1,7 @@
 Package: ISoLDE
 Type: Package
 Title: Integrative Statistics of alleLe Dependent Expression
-<<<<<<< HEAD
-Version: 1.18.0
-=======
 Version: 1.19.1
->>>>>>> 5b190b7 (version bump)
 Date: 2015-10-29
 Authors@R: c( person("Christelle", "Reynès", email =
         "christelle.reynes@igf.cnrs.fr", role = c("aut","cre")),
